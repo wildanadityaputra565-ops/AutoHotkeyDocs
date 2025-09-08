@@ -1,0 +1,76 @@
+const express = require('express');
+const sqlite3 = require('sqlite3').verbose();
+const bodyParser = require('body-parser');
+
+const app = express();
+const port = 3000;
+
+// Database setup
+const db = new sqlite3.Database(':memory:');
+db.serialize(() => {
+  db.run(`CREATE TABLE gedung (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nama TEXT NOT NULL,
+    alamat TEXT NOT NULL,
+    jumlah_lantai INTEGER NOT NULL
+  )`);
+});
+
+app.use(bodyParser.json());
+
+// CREATE Gedung
+app.post('/gedung', (req, res) => {
+  const { nama, alamat, jumlah_lantai } = req.body;
+  db.run(
+    'INSERT INTO gedung (nama, alamat, jumlah_lantai) VALUES (?, ?, ?)',
+    [nama, alamat, jumlah_lantai],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, nama, alamat, jumlah_lantai });
+    }
+  );
+});
+
+// READ All Gedung
+app.get('/gedung', (req, res) => {
+  db.all('SELECT * FROM gedung', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// READ Single Gedung by id
+app.get('/gedung/:id', (req, res) => {
+  db.get('SELECT * FROM gedung WHERE id = ?', [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    res.json(row);
+  });
+});
+
+// UPDATE Gedung
+app.put('/gedung/:id', (req, res) => {
+  const { nama, alamat, jumlah_lantai } = req.body;
+  db.run(
+    'UPDATE gedung SET nama = ?, alamat = ?, jumlah_lantai = ? WHERE id = ?',
+    [nama, alamat, jumlah_lantai, req.params.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      if (this.changes === 0) return res.status(404).json({ error: 'Not found' });
+      res.json({ id: req.params.id, nama, alamat, jumlah_lantai });
+    }
+  );
+});
+
+// DELETE Gedung
+app.delete('/gedung/:id', (req, res) => {
+  db.run('DELETE FROM gedung WHERE id = ?', [req.params.id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ message: 'Deleted' });
+  });
+});
+
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
+});
